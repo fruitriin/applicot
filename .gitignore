@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Bun
+bun.lockb
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test temp directories
+tests/.tmp/
+
+# Novel data (separate repo)
+novel/
