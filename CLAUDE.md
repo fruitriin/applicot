@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 開発プロセス
 
-- ** @Progress.md **: タスク投入時に読み、サブタスク分割・進捗チェックを記録する。タスク完了時に更新する
-- ** Feedback.md**: 問題発生時やタスク完了時に、プロセスの改善点を記録する
+- ** @Progress.md **: タスク投入時・作業中・完了時に必ず参照する。運用ルールはこのファイルに記載
+- ** @Feedback.md **: 問題発生時やタスク完了時に参照・記録する
 
 
 ## プロジェクト概要
