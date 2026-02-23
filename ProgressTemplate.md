@@ -17,7 +17,8 @@
 4. Lint・ビルドを通す
 5. Feedback.md に問題の記録・改善アクションを追記する。反映済みの項目は削除する
 6. `Progresses/YYYY-MM-DD-プラン名.md` にリネームして移動し、ProgressTemplate.md から新規の Progress.md を作成する
-7. コミットする
+7. 実装内容を `blueprints/` に反映する（ディレクトリ構造・DataId・権限等に変更があれば更新）
+8. コミットする
 
 ---
 
