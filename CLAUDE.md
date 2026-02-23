@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **テスト**: `bun test`（単一ファイル: `bun test path/to/file.test.ts`）
   - テスト用の一時ディレクトリはカレントディレクトリ配下に作る（カレントより上の階層に作らない）
 - **パッケージ管理**: `bun install`
-- **依存**: `@anthropic-ai/sdk`, `zod`（最小構成。追加は必要が確認されてから）
+- **依存**: `@modelcontextprotocol/sdk`, `zod`（最小構成。追加は必要が確認されてから）
 - **ストレージ**: ファイルシステムファースト（JSON/Markdown）。データベースは使用しない
 
 ## アーキテクチャ
@@ -35,28 +35,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **JSON 決定的シリアライズ**: `JSON.stringify(data, null, 2) + "\n"`、キー順序固定で git diff をクリーンに保つ
 - **エンティティ単位ファイル分割**: 例: `state/characters/chr_a.json` と `chr_b.json` は別ファイル
 
+### ランタイムモデル
+
+Claude Code 自体がランタイム。各アクターは MCP サーバー経由でデータにアクセスし、小説ディレクトリの SOUL.md を読んで人格・ルールを取得する。EDT が Task ツールで子エージェントを起動してオーケストレーションする。
+
 ### src/ ディレクトリ構造
 
 | ディレクトリ | 役割 |
 |---|---|
 | `core/types/` | 全データ型定義（TypeScript型 + zod スキーマ） |
-| `core/store/` | ファイルシステムストア層 |
+| `core/store/` | ファイルシステムストア層（JSON/Markdown 読み書き、DataId→パス変換） |
 | `core/visibility/` | 情報可視性エンジン（遮断3レベル: 絶対/原則/推奨） |
-| `actors/` | アクター実装（EDT, CHR, AUT, ENV, NAT, ORG, RDR） |
-| `orchestrator/` | シーン生成パイプライン、活性化判定、評価 |
-| `recall/` | 記憶システム（4層: recent/midterm/longterm/pinned + 連想グラフ） |
-| `prompts/` | プロンプトテンプレートと可視性フィルタ付きビルダー |
-| `git/` | Git操作層（コミット戦略、hook、ワークツリー） |
-| `llm/` | LLMアダプタ層（Claude実装。他LLMはアダプタで吸収） |
-| `cli/` | CLIエントリーポイント |
+| `mcp/` | MCP サーバー（stdio transport、9ツール） |
+| `mcp/tools/` | ツールハンドラ（actor, store, recall） |
+| `mcp/recall/` | 記憶システム（4層: recent/midterm/longterm/pinned） |
+| `cli/` | CLI（scaffold コマンド） |
+
+### templates/ ディレクトリ
+
+| ファイル | 役割 |
+|---|---|
+| `soul-md/*.ts` | 7アクター用 SOUL.md テンプレート生成 |
+| `novel-claude-md.ts` | 小説ディレクトリ用 CLAUDE.md テンプレート生成 |
+| `mcp-json.ts` | .mcp.json テンプレート生成 |
 
 ### アクター体系
 
-- **EDT** (Editor/GM): 全データ参照可。シーン設計・レビュー・判断。LLM=Opus推奨
-- **CHR-*** (Character): 自身のハンドアウト+公開情報のみ。行動提案。LLM=Sonnet
-- **AUT** (Author): 公開情報+承認済み行動のみ（非公開ハンドアウト参照不可）。シーン執筆。LLM=Sonnet
-- **RDR-*** (Reader): 確定シーンのみ（状態データ参照不可）。4ペルソナ（ANA/EMO/CRT/NAV）。LLM=Haiku
-- **ENV/NAT/ORG**: 環境・国家・組織。階層的情報制限あり
+- **EDT** (Editor/GM): 全データ参照・書き込み可。シーン設計・レビュー・判断
+- **CHR-*** (Character): 自身のハンドアウト+公開情報のみ参照可。自分の記憶のみ書き込み可
+- **AUT** (Author): 公開情報+承認済み行動のみ（非公開ハンドアウト参照不可）。シーン出力のみ書き込み可
+- **RDR-*** (Reader): 確定シーンのみ（状態データ参照不可）。4ペルソナ（ANA/EMO/CRT/NAV）。評価のみ書き込み可
+- **ENV/NAT/ORG**: 環境・国家・組織。階層的情報制限あり。各自の担当状態のみ書き込み可
 
 ### シーン生成パイプライン
 
