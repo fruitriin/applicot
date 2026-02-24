@@ -7,7 +7,8 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "mcp-server": "bun run src/mcp/server.ts",
-    "scaffold": "bun run src/cli/scaffold.ts"
+    "scaffold": "bun run src/cli/scaffold.ts",
+    "scene": "bun run src/cli/commands/scene.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
