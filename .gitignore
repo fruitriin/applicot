@@ -30,3 +30,6 @@ novels/
 
 # Skill packages
 *.skill
+
+# Git worktrees (kept below repo root per CLAUDE.md)
+.worktrees/
