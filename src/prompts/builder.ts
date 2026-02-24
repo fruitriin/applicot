@@ -4,10 +4,12 @@
 
 import type { ActorId } from "../core/types/ids.js";
 import type { StoreAccess } from "../core/store/store.js";
-import type { ScenePrompt } from "../orchestrator/types.js";
+import type { ScenePrompt, ActionProposal, ReviewResult, SceneManuscript } from "../orchestrator/types.js";
 import { buildEdtDesignPrompt, type EdtDesignContext } from "./templates/edt-design.js";
 import { buildChrActionPrompt, type ChrActionContext } from "./templates/chr-action.js";
 import { buildAutWritePrompt, type AutWriteContext } from "./templates/aut-write.js";
+import { buildEdtReviewPrompt, type EdtReviewContext } from "./templates/edt-review.js";
+import { buildAutRevisePrompt, type AutReviseContext } from "./templates/aut-revise.js";
 
 export interface BuildContext {
   actorId: ActorId;
@@ -25,16 +27,16 @@ export async function buildActorPrompt(
 ): Promise<string> {
   const { actorId } = ctx;
 
-  if (actorId === 'edt') {
+  if (actorId === 'EDT') {
     return buildEdtPrompt(ctx);
   }
 
-  if (actorId.startsWith('chr_')) {
+  if (actorId.startsWith('CHR-')) {
     if (!scenePrompt) throw new Error('scenePrompt required for CHR actor');
     return buildChrPrompt(ctx, scenePrompt);
   }
 
-  if (actorId === 'aut') {
+  if (actorId === 'AUT') {
     if (!scenePrompt) throw new Error('scenePrompt required for AUT actor');
     const proposals = (extra?.actionProposals as AutWriteContext['actionProposals']) ?? [];
     return buildAutPrompt(ctx, scenePrompt, proposals);
@@ -114,4 +116,65 @@ async function readSafe(store: StoreAccess, path: string): Promise<string> {
   } catch {
     return '';
   }
+}
+
+export async function buildEdtReviewPromptFromStore(
+  ctx: BuildContext,
+  manuscript: SceneManuscript,
+  scenePrompt: ScenePrompt,
+  revisionCount: number,
+): Promise<string> {
+  const { store, novelDir } = ctx;
+
+  const gmHandout = await readSafe(store, novelDir + '/handouts/gm/scenario.md');
+  const foreshadowing = await readSafe(store, novelDir + '/state/foreshadowing.json');
+
+  const edtReviewCtx: EdtReviewContext = {
+    sceneNumber: scenePrompt.sceneNumber,
+    cycleNumber: scenePrompt.cycleNumber,
+    totalScenes: ctx.totalScenes,
+    directorNote: scenePrompt.directorNote,
+    dramaticTension: scenePrompt.dramaticTension,
+    manuscriptContent: manuscript.markdownContent,
+    gmHandout,
+    foreshadowing,
+    revisionCount,
+  };
+  return buildEdtReviewPrompt(edtReviewCtx);
+}
+
+export async function buildAutRevisePromptFromStore(
+  ctx: BuildContext,
+  scenePrompt: ScenePrompt,
+  proposals: ActionProposal[],
+  original: SceneManuscript,
+  review: ReviewResult,
+): Promise<string> {
+  const { store, novelDir } = ctx;
+
+  const publicHandout = await readSafe(store, novelDir + '/handouts/public/world.md');
+
+  const revisionCount = 1; // caller tracks actual count
+
+  const mappedProposals = proposals.map(function(p) {
+    return {
+      actorId: p.actorId,
+      actorName: p.actorId,
+      actionType: p.actionType,
+      content: p.content,
+    };
+  });
+
+  const autReviseCtx: AutReviseContext = {
+    sceneNumber: scenePrompt.sceneNumber,
+    cycleNumber: scenePrompt.cycleNumber,
+    totalScenes: ctx.totalScenes,
+    publicHandout,
+    directorNote: scenePrompt.directorNote,
+    actionProposals: mappedProposals,
+    originalManuscript: original.markdownContent,
+    reviewComments: review.comments ?? '',
+    revisionCount,
+  };
+  return buildAutRevisePrompt(autReviseCtx);
 }
