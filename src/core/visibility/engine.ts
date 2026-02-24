@@ -1,6 +1,7 @@
 import { actorTypeFromId, entityIdFromActorId } from "../types/index.js";
 import type { AccessContext, AccessResult, BarrierRule } from "./types.js";
-import { ABSOLUTE_BARRIERS, CREATIVE_ACTOR_TYPES } from "./rules.js";
+import { ABSOLUTE_BARRIERS, CREATIVE_ACTOR_TYPES, LEVEL_2_BARRIERS, LEVEL_3_BARRIERS } from "./rules.js";
+import type { NovelConfig } from "./novel-config.js";
 import { applyConditionalAccess, checkEdtOverride } from "./rules-conditional.js";
 
 export interface VisibilityEngine {
@@ -12,7 +13,7 @@ export interface VisibilityEngine {
  * Create a visibility engine with Level 1 (absolute) barriers.
  * Level 2 and 3 barriers will be added in Phase 2.
  */
-export function createVisibilityEngine(): VisibilityEngine {
+export function createVisibilityEngine(config?: NovelConfig): VisibilityEngine {
   return {
     canAccess(context: AccessContext): AccessResult {
       const { actorId, dataId } = context;
@@ -27,7 +28,37 @@ export function createVisibilityEngine(): VisibilityEngine {
         }
       }
 
-      // Level 2: Conditional access rules
+      // Level 2: Principal barriers (EdtOverride can relax)
+      for (const rule of LEVEL_2_BARRIERS) {
+        if (matchesRule(rule, actorId, dataId)) {
+          if (checkEdtOverride(context, dataId)) {
+            return {
+              allowed: true,
+              reason: "EDT override: Level 2 barrier relaxed for " + dataId,
+            };
+          }
+          return {
+            allowed: false,
+            deniedBy: rule,
+            reason: rule.description ?? "Blocked by Level 2 barrier",
+          };
+        }
+      }
+
+      // Level 3: Recommended barriers (config-switchable)
+      if (config?.enableLevel3Barriers !== false) {
+        for (const rule of LEVEL_3_BARRIERS) {
+          if (matchesRule(rule, actorId, dataId)) {
+            return {
+              allowed: false,
+              deniedBy: rule,
+              reason: rule.description ?? "Blocked by Level 3 barrier (disable via NovelConfig)",
+            };
+          }
+        }
+      }
+
+      // Conditional access (NAT layers, ORG layers)
       const conditionalResult = applyConditionalAccess(context);
       if (conditionalResult !== null) {
         return conditionalResult;
@@ -115,6 +146,16 @@ function checkCondition(
 
       if (dataId.startsWith("HO-PRV-")) {
         const dataEntity = dataId.slice("HO-PRV-".length);
+        return actorEntity !== dataEntity;
+      }
+
+      if (dataId.startsWith("ST-CHR-")) {
+        const dataEntity = dataId.slice("ST-CHR-".length);
+        return actorEntity !== dataEntity;
+      }
+
+      if (dataId.startsWith("ST-ORG-")) {
+        const dataEntity = dataId.slice("ST-ORG-".length);
         return actorEntity !== dataEntity;
       }
 

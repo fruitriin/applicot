@@ -71,5 +71,55 @@ export const ABSOLUTE_BARRIERS: BarrierRule[] = [
   },
 ];
 
+
+/**
+ * Level 2: Principal barriers (can be relaxed by EdtOverride).
+ * These enforce information boundaries that may have in-story exceptions
+ * (e.g., telepathy, shared visions, EDT-sanctioned info transfer).
+ */
+export const LEVEL_2_BARRIERS: BarrierRule[] = [
+  // CHR-A cannot directly access CHR-B's full state
+  // (observable field filtering is handled by the prompt builder)
+  {
+    actor: 'CHR-*',
+    data: 'ST-CHR-*',
+    condition: 'not_own',
+    level: '2',
+    description: "Characters cannot directly access other characters\u0027 state (EdtOverride can relax for telepathy etc.)",
+  },
+];
+
+/**
+ * Level 3: Recommended barriers (configurable via NovelConfig).
+ * These represent best practices for narrative integrity but may be
+ * legitimately disabled for certain story structures.
+ */
+export const LEVEL_3_BARRIERS: BarrierRule[] = [
+  // AUT should not directly access character state (preserves unbiased writing)
+  {
+    actor: 'AUT',
+    data: 'ST-CHR-*',
+    condition: 'always',
+    level: '3',
+    description: 'Author should not directly access character state (preserves unbiased writing; disable for omniscient narrator style)',
+  },
+  // AUT should not directly access nation state
+  {
+    actor: 'AUT',
+    data: 'ST-NAT-*',
+    condition: 'always',
+    level: '3',
+    description: 'Author should not directly access nation state (disable for political thriller style)',
+  },
+  // AUT should not directly access organization state
+  {
+    actor: 'AUT',
+    data: 'ST-ORG-*',
+    condition: 'always',
+    level: '3',
+    description: 'Author should not directly access organization state',
+  },
+];
+
 /** Group alias: creative actors that should not see evaluations */
 export const CREATIVE_ACTOR_TYPES = ["ENV", "NAT", "ORG", "CHR", "AUT"] as const;
