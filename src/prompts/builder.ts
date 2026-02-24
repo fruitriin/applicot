@@ -11,6 +11,8 @@ import { buildAutWritePrompt, type AutWriteContext } from "./templates/aut-write
 import { buildEdtReviewPrompt, type EdtReviewContext } from "./templates/edt-review.js";
 import { buildAutRevisePrompt, type AutReviseContext } from "./templates/aut-revise.js";
 import { buildEnvReportPrompt, type EnvReportContext } from "./templates/env-report.js";
+import { buildOrgReportPrompt, type OrgReportContext } from "./templates/org-report.js";
+import { buildNatReportPrompt, type NatReportContext } from "./templates/nat-report.js";
 
 export interface BuildContext {
   actorId: ActorId;
@@ -45,6 +47,14 @@ export async function buildActorPrompt(
 
   if (actorId === 'ENV') {
     return buildEnvPrompt(ctx, scenePrompt);
+  }
+
+  if (actorId.startsWith('ORG-')) {
+    return buildOrgPrompt(ctx, scenePrompt);
+  }
+
+  if (actorId.startsWith('NAT-')) {
+    return buildNatPrompt(ctx, scenePrompt);
   }
 
   throw new Error('Unknown actorId: ' + actorId);
@@ -132,6 +142,66 @@ async function buildEnvPrompt(ctx: BuildContext, scenePrompt?: ScenePrompt): Pro
   return buildEnvReportPrompt(envCtx);
 }
 
+async function buildOrgPrompt(ctx: BuildContext, scenePrompt?: ScenePrompt): Promise<string> {
+  const { actorId, store, novelDir, sceneNumber, cycleNumber } = ctx;
+  const orgId = actorId.slice('ORG-'.length);
+
+  const publicHandout = await readSafe(store, novelDir + '/handouts/public/world.md');
+  const orgState = await readSafe(store, novelDir + '/state/organizations/' + orgId + '.json');
+  const recentMemory = await readSafe(store, novelDir + '/recall/' + actorId + '/recent.json');
+
+  // Load nation state up to restricted layer if nationId is known
+  let nationState = '';
+  try {
+    const orgData = orgState ? JSON.parse(orgState) : null;
+    if (orgData?.nationId) {
+      const pub = await readSafe(store, novelDir + '/state/nations/' + orgData.nationId + '/public.json');
+      const rst = await readSafe(store, novelDir + '/state/nations/' + orgData.nationId + '/restricted.json');
+      nationState = pub + '\n' + rst;
+    }
+  } catch { /* ignore parse errors */ }
+
+  const orgCtx: OrgReportContext = {
+    actorId,
+    orgId,
+    sceneNumber,
+    cycleNumber,
+    orgState,
+    publicHandout,
+    nationState,
+    recentMemory,
+    directorNote: scenePrompt?.directorNote ?? '',
+  };
+  return buildOrgReportPrompt(orgCtx);
+}
+
+async function buildNatPrompt(ctx: BuildContext, scenePrompt?: ScenePrompt): Promise<string> {
+  const { actorId, store, novelDir, sceneNumber, cycleNumber } = ctx;
+  const natId = actorId.slice('NAT-'.length);
+
+  const publicHandout = await readSafe(store, novelDir + '/handouts/public/world.md');
+  const ownPublicLayer = await readSafe(store, novelDir + '/state/nations/' + natId + '/public.json');
+  const ownRestrictedLayer = await readSafe(store, novelDir + '/state/nations/' + natId + '/restricted.json');
+  const ownSecretLayer = await readSafe(store, novelDir + '/state/nations/' + natId + '/secret.json');
+  const recentMemory = await readSafe(store, novelDir + '/recall/' + actorId + '/recent.json');
+
+  const natCtx: NatReportContext = {
+    actorId,
+    natId,
+    sceneNumber,
+    cycleNumber,
+    ownPublicLayer,
+    ownRestrictedLayer,
+    ownSecretLayer,
+    otherNationsPublic: '',
+    subordinateOrgs: '',
+    publicHandout,
+    recentMemory,
+    directorNote: scenePrompt?.directorNote ?? '',
+  };
+  return buildNatReportPrompt(natCtx);
+}
+
 async function readSafe(store: StoreAccess, path: string): Promise<string> {
   try {
     const result = await store.read<string>(path);
@@ -208,4 +278,18 @@ export async function buildEnvReportPromptFromStore(
   scenePrompt: ScenePrompt,
 ): Promise<string> {
   return buildEnvPrompt(ctx, scenePrompt);
+}
+
+export async function buildOrgReportPromptFromStore(
+  ctx: BuildContext,
+  scenePrompt: ScenePrompt,
+): Promise<string> {
+  return buildOrgPrompt(ctx, scenePrompt);
+}
+
+export async function buildNatReportPromptFromStore(
+  ctx: BuildContext,
+  scenePrompt: ScenePrompt,
+): Promise<string> {
+  return buildNatPrompt(ctx, scenePrompt);
 }

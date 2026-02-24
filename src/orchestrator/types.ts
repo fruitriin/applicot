@@ -53,6 +53,8 @@ export interface SceneResult {
   review: ReviewResult;
   revisionCount: number;
   envReport?: EnvReport;
+  orgReports?: OrgReport[];
+  natReports?: NatReport[];
 }
 
 /** ENV アクターの環境レポート */
@@ -71,6 +73,26 @@ export interface EnvReport extends ActorOutput {
     tectonicActivity?: string;
   };
   envNote: string;
+}
+
+/** ORG アクターの組織レポート */
+export interface OrgReport extends ActorOutput {
+  orgId: string;
+  summary: string;
+  factionDynamics: string;
+  externalActions?: string;
+  urgentMatter?: string;
+  orgNote: string;
+}
+
+/** NAT アクターの国家レポート */
+export interface NatReport extends ActorOutput {
+  natId: string;
+  policyUpdate: string;
+  militaryPosture: string;
+  diplomaticActions: string;
+  urgentMatter?: string;
+  natNote: string;
 }
 
 /** サイクル全体のコンテキスト */

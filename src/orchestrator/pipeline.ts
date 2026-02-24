@@ -13,6 +13,8 @@ import type {
   SceneManuscript,
   ReviewResult,
   EnvReport,
+  OrgReport,
+  NatReport,
 } from "./types.js";
 import type { ActorId } from "../core/types/ids.js";
 import { actorTypeFromId } from "../core/types/ids.js";
@@ -22,6 +24,8 @@ import {
   buildEdtReviewPromptFromStore,
   buildAutRevisePromptFromStore,
   buildEnvReportPromptFromStore,
+  buildOrgReportPromptFromStore,
+  buildNatReportPromptFromStore,
 } from "../prompts/builder.js";
 import { runActorSession } from "../runner/actor.js";
 
@@ -59,6 +63,8 @@ export async function executeScenePipeline(
   const envReport = scenePrompt.activatedActors.includes("ENV" as ActorId)
     ? await runEnvReport(scenePrompt, ctx)
     : undefined;
+  const orgReports = await runOrgReports(scenePrompt, ctx);
+  const natReports = await runNatReports(scenePrompt, ctx);
   let manuscript = await runAuthorWrite(scenePrompt, actionProposals, ctx);
   let review: ReviewResult = { verdict: "approved" };
   let revisionCount = 0;
@@ -68,7 +74,7 @@ export async function executeScenePipeline(
     revisionCount++;
     manuscript = await runAuthorRevise(manuscript, review, scenePrompt, actionProposals, ctx, revisionCount);
   }
-  return { scenePrompt, actionProposals, manuscript, review, revisionCount, envReport };
+  return { scenePrompt, actionProposals, manuscript, review, revisionCount, envReport, orgReports, natReports };
 }
 
 async function runEdtDesign(sceneNumber: number, ctx: CycleContext): Promise<ScenePrompt> {
@@ -147,6 +153,110 @@ async function runEnvReport(
     nonObservable: json.nonObservable,
     envNote: json.envNote,
   };
+}
+async function runOrgReports(
+  scenePrompt: ScenePrompt,
+  ctx: CycleContext,
+): Promise<OrgReport[]> {
+  const orgActors = scenePrompt.activatedActors.filter(
+    (id) => id.startsWith("ORG-"),
+  );
+  if (orgActors.length === 0) return [];
+
+  return Promise.all(
+    orgActors.map(async (actorId) => {
+      const store = createStore({ novelRoot: ctx.novelDir });
+      const prompt = await buildOrgReportPromptFromStore(
+        {
+          actorId,
+          novelDir: ctx.novelDir,
+          sceneNumber: scenePrompt.sceneNumber,
+          cycleNumber: ctx.cycleNumber,
+          totalScenes: ctx.totalScenes,
+          store,
+        },
+        scenePrompt,
+      );
+
+      const { content } = await runActorSession({
+        novelDir: ctx.novelDir,
+        actorId,
+        prompt,
+      });
+
+      const json = extractJson(content) as {
+        summary: string;
+        factionDynamics: string;
+        externalActions?: string;
+        urgentMatter?: string;
+        orgNote: string;
+      };
+
+      const orgId = actorId.slice("ORG-".length);
+      return {
+        actorId,
+        content,
+        orgId,
+        summary: json.summary,
+        factionDynamics: json.factionDynamics,
+        externalActions: json.externalActions,
+        urgentMatter: json.urgentMatter,
+        orgNote: json.orgNote,
+      } satisfies OrgReport;
+    }),
+  );
+}
+async function runNatReports(
+  scenePrompt: ScenePrompt,
+  ctx: CycleContext,
+): Promise<NatReport[]> {
+  const natActors = scenePrompt.activatedActors.filter(
+    (id) => id.startsWith("NAT-"),
+  );
+  if (natActors.length === 0) return [];
+
+  return Promise.all(
+    natActors.map(async (actorId) => {
+      const store = createStore({ novelRoot: ctx.novelDir });
+      const prompt = await buildNatReportPromptFromStore(
+        {
+          actorId,
+          novelDir: ctx.novelDir,
+          sceneNumber: scenePrompt.sceneNumber,
+          cycleNumber: ctx.cycleNumber,
+          totalScenes: ctx.totalScenes,
+          store,
+        },
+        scenePrompt,
+      );
+
+      const { content } = await runActorSession({
+        novelDir: ctx.novelDir,
+        actorId,
+        prompt,
+      });
+
+      const json = extractJson(content) as {
+        policyUpdate: string;
+        militaryPosture: string;
+        diplomaticActions: string;
+        urgentMatter?: string;
+        natNote: string;
+      };
+
+      const natId = actorId.slice("NAT-".length);
+      return {
+        actorId,
+        content,
+        natId,
+        policyUpdate: json.policyUpdate,
+        militaryPosture: json.militaryPosture,
+        diplomaticActions: json.diplomaticActions,
+        urgentMatter: json.urgentMatter,
+        natNote: json.natNote,
+      } satisfies NatReport;
+    }),
+  );
 }
 async function runCharacterProposals(
   scenePrompt: ScenePrompt,
