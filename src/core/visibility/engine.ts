@@ -1,6 +1,7 @@
 import { actorTypeFromId, entityIdFromActorId } from "../types/index.js";
 import type { AccessContext, AccessResult, BarrierRule } from "./types.js";
 import { ABSOLUTE_BARRIERS, CREATIVE_ACTOR_TYPES } from "./rules.js";
+import { applyConditionalAccess, checkEdtOverride } from "./rules-conditional.js";
 
 export interface VisibilityEngine {
   /** Check if an actor can access a piece of data */
@@ -24,6 +25,12 @@ export function createVisibilityEngine(): VisibilityEngine {
             reason: rule.description ?? `Blocked by Level ${rule.level} barrier`,
           };
         }
+      }
+
+      // Level 2: Conditional access rules
+      const conditionalResult = applyConditionalAccess(context);
+      if (conditionalResult !== null) {
+        return conditionalResult;
       }
 
       return {

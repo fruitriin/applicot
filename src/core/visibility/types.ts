@@ -35,6 +35,32 @@ export interface AccessAffiliation {
   accessLevel: "public" | "internal" | "secret";
 }
 
+/** EDT-granted temporary barrier relaxation */
+export interface EdtOverride {
+  reason: string;
+  scope: string[];
+  grantedTo: string;
+  expiresAfterScene: number;
+}
+
+/** Five-stage disclosure progression for secrets */
+export type DisclosureStage = "secret" | "rumor" | "suspicion" | "confirmed" | "public";
+
+export interface DisclosureEvent {
+  fromStage: DisclosureStage;
+  toStage: DisclosureStage;
+  trigger: string;
+  timestamp: string;
+  learnedBy?: string[];
+}
+
+export interface DisclosureState {
+  secretId: string;
+  currentStage: DisclosureStage;
+  knownBy: string[];
+  history: DisclosureEvent[];
+}
+
 /** Context for access decisions */
 export interface AccessContext {
   /** The requesting actor's ID */
@@ -46,11 +72,7 @@ export interface AccessContext {
   /** Espionage capability (for NAT inter-access) */
   espionageCapability?: number;
   /** EDT override for temporary barrier relaxation */
-  edtOverride?: {
-    reason: string;
-    scope: string;
-    expiresAfterScene: number;
-  };
+  edtOverride?: EdtOverride;
 }
 
 /** Result of a visibility check */
