@@ -10,6 +10,7 @@ import { buildChrActionPrompt, type ChrActionContext } from "./templates/chr-act
 import { buildAutWritePrompt, type AutWriteContext } from "./templates/aut-write.js";
 import { buildEdtReviewPrompt, type EdtReviewContext } from "./templates/edt-review.js";
 import { buildAutRevisePrompt, type AutReviseContext } from "./templates/aut-revise.js";
+import { buildEnvReportPrompt, type EnvReportContext } from "./templates/env-report.js";
 
 export interface BuildContext {
   actorId: ActorId;
@@ -40,6 +41,10 @@ export async function buildActorPrompt(
     if (!scenePrompt) throw new Error('scenePrompt required for AUT actor');
     const proposals = (extra?.actionProposals as AutWriteContext['actionProposals']) ?? [];
     return buildAutPrompt(ctx, scenePrompt, proposals);
+  }
+
+  if (actorId === 'ENV') {
+    return buildEnvPrompt(ctx, scenePrompt);
   }
 
   throw new Error('Unknown actorId: ' + actorId);
@@ -107,6 +112,24 @@ async function buildAutPrompt(
     actionProposals: proposals, pastScenes,
   };
   return buildAutWritePrompt(autCtx);
+}
+
+async function buildEnvPrompt(ctx: BuildContext, scenePrompt?: ScenePrompt): Promise<string> {
+  const { store, novelDir, sceneNumber, cycleNumber } = ctx;
+
+  const publicHandout = await readSafe(store, novelDir + '/handouts/public/world.md');
+  const environmentState = await readSafe(store, novelDir + '/state/environment.json');
+  const recentMemory = await readSafe(store, novelDir + '/recall/ENV/recent.json');
+
+  const envCtx: EnvReportContext = {
+    sceneNumber,
+    cycleNumber,
+    environmentState,
+    publicHandout,
+    recentMemory,
+    directorNote: scenePrompt?.directorNote ?? '',
+  };
+  return buildEnvReportPrompt(envCtx);
 }
 
 async function readSafe(store: StoreAccess, path: string): Promise<string> {
@@ -177,4 +200,12 @@ export async function buildAutRevisePromptFromStore(
     revisionCount,
   };
   return buildAutRevisePrompt(autReviseCtx);
+}
+
+
+export async function buildEnvReportPromptFromStore(
+  ctx: BuildContext,
+  scenePrompt: ScenePrompt,
+): Promise<string> {
+  return buildEnvPrompt(ctx, scenePrompt);
 }

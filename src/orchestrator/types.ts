@@ -52,6 +52,25 @@ export interface SceneResult {
   manuscript: SceneManuscript;
   review: ReviewResult;
   revisionCount: number;
+  envReport?: EnvReport;
+}
+
+/** ENV アクターの環境レポート */
+export interface EnvObservable {
+  weather: string;
+  temperature: string;
+  timeOfDay: string;
+  notableEvents: string[];
+}
+
+export interface EnvReport extends ActorOutput {
+  observable: EnvObservable;
+  nonObservable: {
+    climateTrend?: string;
+    ecologicalShift?: string;
+    tectonicActivity?: string;
+  };
+  envNote: string;
 }
 
 /** サイクル全体のコンテキスト */

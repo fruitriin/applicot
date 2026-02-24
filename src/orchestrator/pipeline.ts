@@ -12,6 +12,7 @@ import type {
   ActionProposal,
   SceneManuscript,
   ReviewResult,
+  EnvReport,
 } from "./types.js";
 import type { ActorId } from "../core/types/ids.js";
 import { actorTypeFromId } from "../core/types/ids.js";
@@ -20,6 +21,7 @@ import {
   buildActorPrompt,
   buildEdtReviewPromptFromStore,
   buildAutRevisePromptFromStore,
+  buildEnvReportPromptFromStore,
 } from "../prompts/builder.js";
 import { runActorSession } from "../runner/actor.js";
 
@@ -54,6 +56,9 @@ export async function executeScenePipeline(
 ): Promise<SceneResult> {
   const scenePrompt = await runEdtDesign(sceneNumber, ctx);
   const actionProposals = await runCharacterProposals(scenePrompt, ctx);
+  const envReport = scenePrompt.activatedActors.includes("ENV" as ActorId)
+    ? await runEnvReport(scenePrompt, ctx)
+    : undefined;
   let manuscript = await runAuthorWrite(scenePrompt, actionProposals, ctx);
   let review: ReviewResult = { verdict: "approved" };
   let revisionCount = 0;
@@ -63,7 +68,7 @@ export async function executeScenePipeline(
     revisionCount++;
     manuscript = await runAuthorRevise(manuscript, review, scenePrompt, actionProposals, ctx, revisionCount);
   }
-  return { scenePrompt, actionProposals, manuscript, review, revisionCount };
+  return { scenePrompt, actionProposals, manuscript, review, revisionCount, envReport };
 }
 
 async function runEdtDesign(sceneNumber: number, ctx: CycleContext): Promise<ScenePrompt> {
@@ -95,6 +100,52 @@ async function runEdtDesign(sceneNumber: number, ctx: CycleContext): Promise<Sce
     directorNote: json.directorNote,
     activatedActors: json.activatedActors as ActorId[],
     dramaticTension: json.dramaticTension,
+  };
+}
+async function runEnvReport(
+  scenePrompt: ScenePrompt,
+  ctx: CycleContext,
+): Promise<EnvReport> {
+  const store = createStore({ novelRoot: ctx.novelDir });
+  const prompt = await buildEnvReportPromptFromStore(
+    {
+      actorId: "ENV" as ActorId,
+      novelDir: ctx.novelDir,
+      sceneNumber: scenePrompt.sceneNumber,
+      cycleNumber: ctx.cycleNumber,
+      totalScenes: ctx.totalScenes,
+      store,
+    },
+    scenePrompt,
+  );
+
+  const { content } = await runActorSession({
+    novelDir: ctx.novelDir,
+    actorId: "ENV" as ActorId,
+    prompt,
+  });
+
+  const json = extractJson(content) as {
+    observable: {
+      weather: string;
+      temperature: string;
+      timeOfDay: string;
+      notableEvents: string[];
+    };
+    nonObservable: {
+      climateTrend?: string;
+      ecologicalShift?: string;
+      tectonicActivity?: string;
+    };
+    envNote: string;
+  };
+
+  return {
+    actorId: "ENV" as ActorId,
+    content,
+    observable: json.observable,
+    nonObservable: json.nonObservable,
+    envNote: json.envNote,
   };
 }
 async function runCharacterProposals(
