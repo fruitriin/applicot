@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, it, test } from "bun:test";
 import { buildNatReportPrompt } from "../../src/prompts/templates/nat-report.js";
+import type { NatReportContext } from "../../src/prompts/templates/nat-report.js";
 
 describe("buildNatReportPrompt", () => {
   const baseCtx = {
@@ -40,5 +41,72 @@ describe("buildNatReportPrompt", () => {
   test("handles empty fields gracefully", () => {
     const prompt = buildNatReportPrompt({ ...baseCtx, recentMemory: "" });
     expect(prompt).toContain("まだ記憶なし");
+  });
+});
+
+describe('buildNatReportPrompt - wartime', () => {
+  it('includes wartime section when isWartime is true', () => {
+    const ctx: NatReportContext = {
+      actorId: 'NAT-england',
+      natId: 'england',
+      sceneNumber: 5,
+      cycleNumber: 1,
+      ownPublicLayer: 'England public',
+      ownRestrictedLayer: 'England restricted',
+      ownSecretLayer: 'England secret',
+      otherNationsPublic: 'France: at war',
+      subordinateOrgs: '',
+      publicHandout: 'World at war',
+      recentMemory: '',
+      directorNote: 'Critical battle scene',
+      isWartime: true,
+      warStatus: '交戦国: フランス。北部戦線で膠着状態。',
+    };
+    const prompt = buildNatReportPrompt(ctx);
+    expect(prompt).toContain('⚔️ 戦時状態');
+    expect(prompt).toContain('交戦国: フランス');
+    expect(prompt).toContain('戦時特殊指示');
+    expect(prompt).toContain('wartimeActions');
+    expect(prompt).toContain('毎シーン更新');
+  });
+
+  it('omits wartime section when isWartime is false', () => {
+    const ctx: NatReportContext = {
+      actorId: 'NAT-england',
+      natId: 'england',
+      sceneNumber: 1,
+      cycleNumber: 1,
+      ownPublicLayer: '',
+      ownRestrictedLayer: '',
+      ownSecretLayer: '',
+      otherNationsPublic: '',
+      subordinateOrgs: '',
+      publicHandout: '',
+      recentMemory: '',
+      directorNote: 'Peaceful scene',
+      isWartime: false,
+    };
+    const prompt = buildNatReportPrompt(ctx);
+    expect(prompt).not.toContain('⚔️ 戦時状態');
+    expect(prompt).not.toContain('戦時特殊指示');
+  });
+
+  it('omits wartime section when isWartime is undefined', () => {
+    const ctx: NatReportContext = {
+      actorId: 'NAT-england',
+      natId: 'england',
+      sceneNumber: 1,
+      cycleNumber: 1,
+      ownPublicLayer: '',
+      ownRestrictedLayer: '',
+      ownSecretLayer: '',
+      otherNationsPublic: '',
+      subordinateOrgs: '',
+      publicHandout: '',
+      recentMemory: '',
+      directorNote: 'Peaceful scene',
+    };
+    const prompt = buildNatReportPrompt(ctx);
+    expect(prompt).not.toContain('⚔️ 戦時状態');
   });
 });

@@ -27,6 +27,10 @@ export interface NatReportContext {
   recentMemory: string;
   /** EDT からの演出指示 */
   directorNote: string;
+  /** 戦時フラグ（trueの場合は軍事セクションを強化） */
+  isWartime?: boolean;
+  /** 戦時の場合: 交戦国・戦線状況 */
+  warStatus?: string;
 }
 
 export function buildNatReportPrompt(ctx: NatReportContext): string {
@@ -61,6 +65,16 @@ export function buildNatReportPrompt(ctx: NatReportContext): string {
   parts.push("## 今シーンの演出指示（EDTより）");
   parts.push(ctx.directorNote);
   parts.push("");
+  if (ctx.isWartime) {
+    parts.push("## ⚔️ 戦時状態");
+    parts.push(ctx.warStatus || "（戦線情報なし）");
+    parts.push("");
+    parts.push("【戦時特殊指示】");
+    parts.push("- 現在は戦時状態です。軍事行動・外交交渉を最優先で報告してください");
+    parts.push("- militaryPosture は通常より詳細に（前線の動向・補給状況・指揮系統を含む）");
+    parts.push("- 毎シーン更新が必要です");
+    parts.push("");
+  }
   parts.push("---");
   parts.push("");
   parts.push("以下の JSON 形式でレポートを出力してください：");
@@ -71,6 +85,7 @@ export function buildNatReportPrompt(ctx: NatReportContext): string {
   parts.push('  "militaryPosture": "軍事的な動向・配置・脅威認識",');
   parts.push('  "diplomaticActions": "外交的な動向・交渉・姿勢",');
   parts.push('  "urgentMatter": "EDT に報告すべき緊急事項（任意）",');
+  parts.push('  "wartimeActions": "戦時の場合のみ: 今シーンの軍事的決定・作戦（平時はnull）",');
   parts.push('  "natNote": "AUT・キャラクターへの一行国家サマリー（このシーンの政治的な背景）"');
   parts.push("}");
   parts.push(fence);
@@ -78,6 +93,9 @@ export function buildNatReportPrompt(ctx: NatReportContext): string {
   parts.push("【制約】");
   parts.push("- secret 層は国家の内部判断にのみ使用。AUT やキャラクターへは漏らさないこと");
   parts.push("- natNote は1〜2文の簡潔なサマリー");
+  if (ctx.isWartime) {
+    parts.push("- 戦時: wartimeActions に今シーンの具体的軍事行動を記録すること");
+  }
 
   return parts.join("\n");
 }
