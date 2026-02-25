@@ -55,6 +55,7 @@ export interface SceneResult {
   envReport?: EnvReport;
   orgReports?: OrgReport[];
   natReports?: NatReport[];
+  evaluationResult?: EvaluationResult;
 }
 
 /** ENV アクターの環境レポート */
@@ -101,4 +102,35 @@ export interface CycleContext {
   cycleNumber: number;
   totalScenes: number;        // MVP: 4 (起承転結)
   completedScenes: number;
+}
+
+/** 四象限ラベル */
+export type QuadrantLabel =
+  | "surprise-positive"
+  | "surprise-negative"
+  | "expected-positive"
+  | "expected-negative";
+
+/** RDR アクターの読者評価レポート */
+export interface RdrReport extends ActorOutput {
+  personaId: "RDR-ANA" | "RDR-EMO" | "RDR-CRT" | "RDR-NAV";
+  quadrant: QuadrantLabel;
+  score: number;
+  keyMoments: string[];
+  concerns: string[];
+  summary: string;
+}
+
+/** ペルソナ間不一致 */
+export interface PersonaDisagreement {
+  aspect: string;
+  divergentPersonas: string[];
+  description: string;
+}
+
+/** 評価パイプラインの出力 */
+export interface EvaluationResult {
+  reports: RdrReport[];
+  disagreements: PersonaDisagreement[];
+  evlReport: string;
 }
