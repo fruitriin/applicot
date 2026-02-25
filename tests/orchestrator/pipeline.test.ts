@@ -21,6 +21,7 @@ function makeCtx(overrides: Partial<CycleContext> = {}): CycleContext {
     cycleNumber: 1,
     totalScenes: 4,
     completedScenes: 0,
+    enableEvaluation: false,
     ...overrides,
   };
 }
@@ -74,5 +75,31 @@ describe("executeScenePipeline", () => {
     const result = await executeScenePipeline(1, makeCtx());
     expect(result.revisionCount).toBeGreaterThanOrEqual(1);
     expect(result.review.verdict).toBe("approved");
+  });
+
+  test("enableEvaluation: true で evaluationResult が返る", async () => {
+    const rdrReport = {
+      quadrant: "expected-positive",
+      score: 0.8,
+      keyMoments: ["感動シーン"],
+      concerns: [],
+      summary: "良いシーンでした",
+    };
+    mock.module("../../src/runner/actor.js", () => ({
+      runActorSession: async (input: { actorId: string; prompt: string; novelDir: string }) => {
+        if (input.actorId === "EDT") {
+          return { content: JSON.stringify({ directorNote: "評価テスト", activatedActors: [], dramaticTension: "緊張" }) };
+        }
+        if (typeof input.actorId === "string" && input.actorId.startsWith("RDR-")) {
+          return { content: JSON.stringify(rdrReport) };
+        }
+        return { content: "# scene" };
+      },
+    }));
+
+    const result = await executeScenePipeline(1, makeCtx({ enableEvaluation: true }));
+    expect(result.evaluationResult).toBeDefined();
+    expect(result.evaluationResult!.reports).toHaveLength(4);
+    expect(result.evaluationResult!.evlReport).toContain("EVL-RPT");
   });
 });

@@ -102,6 +102,8 @@ export interface CycleContext {
   cycleNumber: number;
   totalScenes: number;        // MVP: 4 (起承転結)
   completedScenes: number;
+  /** 読者評価（RDR-ANA/EMO/CRT/NAV）を実行するか。デフォルト: true */
+  enableEvaluation?: boolean;
 }
 
 /** 四象限ラベル */

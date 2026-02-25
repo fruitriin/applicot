@@ -28,6 +28,7 @@ import {
   buildNatReportPromptFromStore,
 } from "../prompts/builder.js";
 import { runActorSession } from "../runner/actor.js";
+import { evaluateManuscript } from "./evaluation.js";
 
 const MAX_REVISION_CYCLES = 3;
 
@@ -74,7 +75,10 @@ export async function executeScenePipeline(
     revisionCount++;
     manuscript = await runAuthorRevise(manuscript, review, scenePrompt, actionProposals, ctx, revisionCount);
   }
-  return { scenePrompt, actionProposals, manuscript, review, revisionCount, envReport, orgReports, natReports };
+  const evaluationResult = ctx.enableEvaluation !== false
+    ? await evaluateManuscript(manuscript, ctx.novelDir).catch(() => undefined)
+    : undefined;
+  return { scenePrompt, actionProposals, manuscript, review, revisionCount, envReport, orgReports, natReports, evaluationResult };
 }
 
 async function runEdtDesign(sceneNumber: number, ctx: CycleContext): Promise<ScenePrompt> {
